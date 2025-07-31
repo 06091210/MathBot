@@ -147,7 +147,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>三次方程式ソルバー（整形表示付き）</title>
+  <title>複素係数三次方程式ソルバー（整形表示付き）</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.js"></script>
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
   <script id="MathJax-script" async
@@ -159,9 +159,8 @@
   </style>
 </head>
 <body>
-  <h2>三次方程式ソルバー（整形表示付き）</h2>
-  <p><code>ax³ + bx² + cx + d = 0</code> の係数を入力してください（√, π, i などもOK）</p>
-
+  <h2>複素係数三次方程式ソルバー（整形表示付き）</h2>
+  <p><code>ax^3 + bx^2 + cx + d = 0</code> の係数を入力してください（√, π, i などもOK）</p>
   <form onsubmit="solve(); return false;">
     a: <input type="text" id="a" value="1"><br>
     b: <input type="text" id="b" value="0"><br>
@@ -169,93 +168,78 @@
     d: <input type="text" id="d" value="-1"><br>
     <button type="submit">解を求める</button>
   </form>
-
   <div id="result"></div>
 
 <script>
-function parseToComplex(expr) {
+function parse(expr) {
   try {
-    const val = math.evaluate(expr);
-    return math.complex(val);
-  } catch {
+    return math.evaluate(expr);
+  } catch (e) {
     return null;
   }
 }
 
-// 有理化処理（例: 1/√2 → √2/2）
-function rationalize(expr) {
-  try {
-    const simplified = math.rationalize(expr, {}, { exactFractions: true });
-    return math.simplify(simplified.toString());
-  } catch {
-    return math.simplify(expr);
+function formatComplex(z) {
+  const re = math.simplify(math.re(z));
+  const im = math.simplify(math.im(z));
+  let reStr = re.toString() === '0' ? '' : math.format(re, { fraction: 'ratio' });
+  let imStr = '';
+  if (!math.equal(im, 0)) {
+    const absIm = math.abs(im);
+    const imVal = math.format(absIm, { fraction: 'ratio' });
+    imStr = (math.smaller(im, 0) ? ' - ' : (reStr ? ' + ' : '')) + (imVal === '1' ? 'i' : imVal + 'i');
   }
-}
-
-function formatFraction(value) {
-  try {
-    const simplified = math.simplify(value);
-    return rationalize(simplified.toString()).toTex();
-  } catch {
-    return math.simplify(value).toTex();
-  }
-}
-
-function formatComplexLatex(z) {
-  const re = math.simplify(z.re);
-  const im = math.simplify(z.im);
-
-  const reZero = math.equal(re, 0);
-  const imZero = math.equal(im, 0);
-
-  let reTex = formatFraction(re);
-  let imTex = formatFraction(im);
-
-  if (imZero && reZero) return "0";
-  if (imZero) return reTex;
-  if (reZero) return imTex === "1" ? "i" : imTex === "-1" ? "-i" : imTex + "i";
-
-  const sign = math.smaller(im, 0) ? " - " : " + ";
-  const imAbs = math.abs(im);
-  imTex = formatFraction(imAbs);
-
-  return `${reTex}${sign}${imTex === "1" ? "" : imTex}i`;
+  return reStr + imStr || '0';
 }
 
 function solve() {
+  const a = parse(document.getElementById("a").value);
+  const b = parse(document.getElementById("b").value);
+  const c = parse(document.getElementById("c").value);
+  const d = parse(document.getElementById("d").value);
   const result = document.getElementById("result");
-  result.innerHTML = "";
 
-  const a = parseToComplex(document.getElementById("a").value);
-  const b = parseToComplex(document.getElementById("b").value);
-  const c = parseToComplex(document.getElementById("c").value);
-  const d = parseToComplex(document.getElementById("d").value);
-
-  if (!a || !b || !c || !d) {
-    result.textContent = "入力にエラーがあります。係数を確認してください。";
+  if (!a || !b || !c || !d || math.equal(a, 0)) {
+    result.innerHTML = "<span style='color:red'>入力に誤りがあります</span>";
     return;
   }
 
-  try {
-    const coeffs = [a.toString(), b.toString(), c.toString(), d.toString()];
-    const roots = math.polynomialRoots(coeffs);
+  // カルダノの公式を使って三次方程式 ax^3 + bx^2 + cx + d = 0 を解く
+  const one = math.complex(1);
+  const zero = math.complex(0);
+  const C3 = math.divide(b, a);
+  const C2 = math.divide(c, a);
+  const C1 = math.divide(d, a);
 
-    let output = `\\[
-\\text{方程式:}\\; ${a.toString()}x^3 + ${b.toString()}x^2 + ${c.toString()}x + ${d.toString()} = 0
-\\]`;
+  const p = math.subtract(C2, math.divide(math.square(C3), 3));
+  const q = math.add(
+    math.multiply(2, math.pow(C3, 3)) / 27,
+    math.subtract(
+      math.multiply(-1, math.divide(C3, 3), C2),
+      C1
+    )
+  );
 
-    roots.forEach((root, idx) => {
-      const z = math.complex(root);
-      const formatted = formatComplexLatex(z);
-      output += `\\[ x_${idx + 1} = ${formatted} \\]`;
-    });
+  const D = math.divide(math.add(math.square(q), math.multiply(4, math.pow(p, 3)) / 27), 4);
 
-    result.innerHTML = output;
-    MathJax.typesetPromise();
-  } catch (e) {
-    result.textContent = "解の計算中にエラーが発生しました。";
-    console.error(e);
-  }
+  const sqrtD = math.sqrt(D);
+  const u = math.cbrt(math.divide(-q, 2) + sqrtD);
+  const v = math.cbrt(math.divide(-q, 2) - sqrtD);
+  const omega = math.complex(-0.5, Math.sqrt(3) / 2);
+
+  const x1 = math.subtract(math.add(u, v), math.divide(C3, 3));
+  const x2 = math.subtract(math.add(math.multiply(omega, u), math.multiply(math.conj(omega), v)), math.divide(C3, 3));
+  const x3 = math.subtract(math.add(math.multiply(math.conj(omega), u), math.multiply(omega, v)), math.divide(C3, 3));
+
+  const out = `
+    \[
+    x_1 = ${formatComplex(x1)} \\
+    x_2 = ${formatComplex(x2)} \\
+    x_3 = ${formatComplex(x3)}
+    \]`;
+
+  result.innerHTML = out;
+  MathJax.typesetPromise();
 }
 </script>
 </body>
