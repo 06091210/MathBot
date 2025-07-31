@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!--<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
@@ -142,4 +142,116 @@
   </script>
 
 </body>
+</html>-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>√付き分母有理化 二次方程式ソルバー</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 2em auto; padding: 1em; border: 1px solid #ccc; border-radius: 8px; }
+    input { width: 150px; margin: 5px; }
+    #result { margin-top: 1em; font-weight: bold; white-space: pre-line; }
+  </style>
+</head>
+<body>
+
+  <h2>√付き・分母有理化対応 二次方程式ソルバー</h2>
+  <p>ax² + bx + c = 0 の係数に sqrt(), pi, i, 複素数など可</p>
+
+  <form onsubmit="solve(); return false;">
+    a: <input type="text" id="a" value="1"><br>
+    b: <input type="text" id="b" value="2"><br>
+    c: <input type="text" id="c" value="5"><br>
+    <button type="submit">解を求める</button>
+  </form>
+
+  <div id="result"></div>
+
+<script>
+function fmtSqrtFrac(numer, denom) {
+  // √の因数を外に出し、約分
+  let sq = math.sqrt(numer);
+  if (math.isInteger(sq)) {
+    return `${sq}/${denom}`;
+  }
+  let outside = 1, inside = numer;
+  for (let i = 2; i*i <= inside; i++) {
+    while (inside % (i*i) === 0) {
+      inside /= (i*i);
+      outside *= i;
+    }
+  }
+  let gcd = math.gcd(outside, denom);
+  outside /= gcd;
+  let d2 = denom / gcd;
+  const numStr = outside === 1 ? '' : outside;
+  const sqrtStr = `√${inside}`;
+  if (d2 === 1) return `${numStr}${sqrtStr}`;
+  return `${numStr}${sqrtStr}/${d2}`;
+}
+
+function formatExpr(expr) {
+  // expr = math.simplify(expr)
+  if (expr.im === 0) return expr.re.toString();
+  if (expr.re === 0) {
+    let im = expr.im, sign = im < 0 ? '-' : '';
+    let abs = math.abs(im);
+    if (math.isInteger(abs)) {
+      return `${sign}${abs === 1 ? '' : abs}i`;
+    }
+  }
+  let re = expr.re, im = expr.im;
+  let reStr = re.toString();
+  let imSign = im < 0 ? '-' : '+';
+  let abs = math.abs(im);
+  let imStr = math.isInteger(abs) ? `${abs === 1 ? '' : abs}i` : `${abs}i`;
+  return `${reStr} ${imSign} ${imStr}`;
+}
+
+function solve() {
+  const res = document.getElementById('result');
+  res.textContent = '';
+  try {
+    const a = math.evaluate(document.getElementById('a').value);
+    const b = math.evaluate(document.getElementById('b').value);
+    const c = math.evaluate(document.getElementById('c').value);
+
+    if (math.equal(a, 0)) return res.textContent = 'a = 0 のため一次方程式になります';
+
+    const D = math.simplify(math.subtract(math.square(b), math.multiply(4,a,c)));
+    const sqrtD = math.simplify(math.sqrt(D));
+    const denom = math.multiply(2, a);
+
+    const x1 = math.simplify(math.divide(math.add(math.unaryMinus(b), sqrtD), denom));
+    const x2 = math.simplify(math.divide(math.subtract(math.unaryMinus(b), sqrtD), denom));
+
+    // 分母有理化: 判別式が正かつ sqrtDに根を含む
+    let out = `D = ${math.format(D)}\n`;
+
+    // √付き分母有理化形式
+    if (math.isPositive(D) && !math.isInteger(math.sqrt(D))) {
+      // real parts: (-b)/(2a)
+      let realPart = math.simplify(math.divide(math.unaryMinus(b), denom));
+      // imag part: sqrt(D)/(2a)
+      let numD = math.number(math.squeeze(D));
+      let denomNum = math.number( math.multiply(2, a) );
+      let frac = fmtSqrtFrac(numD, denomNum);
+      out += `解: x₁ = ${realPart.toString()} + ${frac}, x₂ = ${realPart.toString()} - ${frac}`;
+    } else {
+      // 通常表示へ
+      const cx1 = math.complex(x1);
+      const cx2 = math.complex(x2);
+      out += `解: x₁ = ${formatExpr(cx1)}, x₂ = ${formatExpr(cx2)}`;
+    }
+    res.textContent = out;
+  } catch (e) {
+    res.textContent = '入力を確認してください';
+    console.error(e);
+  }
+}
+</script>
+</body>
 </html>
+
