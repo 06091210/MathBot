@@ -147,74 +147,113 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>複素係数三次方程式ソルバー</title>
+  <title>三次方程式ソルバー（整形表示付き）</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.js"></script>
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
   <script id="MathJax-script" async
-    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
-  </script>
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <style>
-    body { font-family: sans-serif; max-width: 700px; margin: 2em auto; padding: 1em; }
+    body { font-family: sans-serif; max-width: 700px; margin: 2em auto; }
     input { width: 200px; margin: 0.5em 0; }
     #result { margin-top: 1em; }
   </style>
 </head>
 <body>
-  <h2>複素係数 三次方程式ソルバー</h2>
-  <p>形式：<code>a x³ + b x² + c x + d = 0</code></p>
-  <p>係数に <code>sqrt(2)</code>, <code>pi</code>, <code>i</code>, <code>2+3i</code> 等使用可能</p>
+  <h2>三次方程式ソルバー（整形表示付き）</h2>
+  <p><code>ax³ + bx² + cx + d = 0</code> の係数を入力してください（√, π, i などもOK）</p>
 
   <form onsubmit="solve(); return false;">
     a: <input type="text" id="a" value="1"><br>
     b: <input type="text" id="b" value="0"><br>
     c: <input type="text" id="c" value="0"><br>
     d: <input type="text" id="d" value="-1"><br>
-    <button type="submit">解を表示</button>
+    <button type="submit">解を求める</button>
   </form>
 
   <div id="result"></div>
 
 <script>
-function formatComplex(z) {
+function parseToComplex(expr) {
+  try {
+    const val = math.evaluate(expr);
+    return math.complex(val);
+  } catch {
+    return null;
+  }
+}
+
+// 有理化処理（例: 1/√2 → √2/2）
+function rationalize(expr) {
+  try {
+    const simplified = math.rationalize(expr, {}, { exactFractions: true });
+    return math.simplify(simplified.toString());
+  } catch {
+    return math.simplify(expr);
+  }
+}
+
+function formatFraction(value) {
+  try {
+    const simplified = math.simplify(value);
+    return rationalize(simplified.toString()).toTex();
+  } catch {
+    return math.simplify(value).toTex();
+  }
+}
+
+function formatComplexLatex(z) {
   const re = math.simplify(z.re);
   const im = math.simplify(z.im);
-  const re0 = math.equal(re, 0);
-  const im0 = math.equal(im, 0);
-  let reStr = re.toString();
-  let imStr = im.toString();
-  if (im0 && re0) return "0";
-  if (im0) return reStr;
-  const coeff = (imStr === "1" ? "" : imStr === "-1" ? "-" : imStr);
-  if (re0) return coeff + "i";
-  return `${reStr} ${math.smaller(im, 0) ? '-' : '+'} ${coeff.replace('-', '')}i`;
+
+  const reZero = math.equal(re, 0);
+  const imZero = math.equal(im, 0);
+
+  let reTex = formatFraction(re);
+  let imTex = formatFraction(im);
+
+  if (imZero && reZero) return "0";
+  if (imZero) return reTex;
+  if (reZero) return imTex === "1" ? "i" : imTex === "-1" ? "-i" : imTex + "i";
+
+  const sign = math.smaller(im, 0) ? " - " : " + ";
+  const imAbs = math.abs(im);
+  imTex = formatFraction(imAbs);
+
+  return `${reTex}${sign}${imTex === "1" ? "" : imTex}i`;
 }
 
 function solve() {
-  const res = document.getElementById('result');
-  res.innerHTML = '';
+  const result = document.getElementById("result");
+  result.innerHTML = "";
+
+  const a = parseToComplex(document.getElementById("a").value);
+  const b = parseToComplex(document.getElementById("b").value);
+  const c = parseToComplex(document.getElementById("c").value);
+  const d = parseToComplex(document.getElementById("d").value);
+
+  if (!a || !b || !c || !d) {
+    result.textContent = "入力にエラーがあります。係数を確認してください。";
+    return;
+  }
+
   try {
-    const a = math.evaluate(document.getElementById('a').value);
-    const b = math.evaluate(document.getElementById('b').value);
-    const c = math.evaluate(document.getElementById('c').value);
-    const d = math.evaluate(document.getElementById('d').value);
+    const coeffs = [a.toString(), b.toString(), c.toString(), d.toString()];
+    const roots = math.polynomialRoots(coeffs);
 
-    const roots = math.polynomialRoots([a, b, c, d]);
-    // 解析解して数値 or exact
+    let output = `\\[
+\\text{方程式:}\\; ${a.toString()}x^3 + ${b.toString()}x^2 + ${c.toString()}x + ${d.toString()} = 0
+\\]`;
 
-    let html = `\\[
-\\text{方程式:}\\; ${math.simplify(a.toString())}x^3 + ${math.simplify(b.toString())}x^2 + ${math.simplify(c.toString())}x + ${math.simplify(d.toString())} = 0
-\\]\n`;
-    roots.forEach((r, i) => {
-      const cz = math.complex(r);
-      const fmt = formatComplex(cz);
-      html += `\\[
-x_{${i+1}} = ${fmt}
-\\]\n`;
+    roots.forEach((root, idx) => {
+      const z = math.complex(root);
+      const formatted = formatComplexLatex(z);
+      output += `\\[ x_${idx + 1} = ${formatted} \\]`;
     });
-    res.innerHTML = html;
+
+    result.innerHTML = output;
     MathJax.typesetPromise();
-  } catch(e) {
-    res.textContent = '入力にエラーがあります。係数を確認してください。';
+  } catch (e) {
+    result.textContent = "解の計算中にエラーが発生しました。";
     console.error(e);
   }
 }
