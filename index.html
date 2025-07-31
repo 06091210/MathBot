@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>二次方程式ソルバー</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 2em auto;
+      padding: 1em;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    input {
+      width: 60px;
+      margin-right: 10px;
+    }
+    #result {
+      margin-top: 1em;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>二次方程式ソルバー</h2>
+  <p>方程式：<code>ax² + bx + c = 0</code></p>
+  <form onsubmit="solve(); return false;">
+    a: <input type="number" id="a" value="1" step="any">
+    b: <input type="number" id="b" value="0" step="any">
+    c: <input type="number" id="c" value="1" step="any">
+    <button type="submit">解を求める</button>
+  </form>
+
+  <div id="result"></div>
+
+  <script>
+    function gcd(a, b) {
+      if (!b) return a;
+      return gcd(b, a % b);
+    }
+
+    function simplifyFraction(numerator, denominator) {
+      const sign = Math.sign(numerator) * Math.sign(denominator);
+      numerator = Math.abs(numerator);
+      denominator = Math.abs(denominator);
+      const d = gcd(numerator, denominator);
+      return {
+        numerator: sign * (numerator / d),
+        denominator: denominator / d,
+      };
+    }
+
+    function fractionToString(frac) {
+      if (frac.denominator === 1) return `${frac.numerator}`;
+      return `${frac.numerator}/${frac.denominator}`;
+    }
+
+    function sqrtSimplify(n) {
+      let outside = 1;
+      let inside = n;
+      for (let i = 2; i * i <= inside; i++) {
+        while (inside % (i * i) === 0) {
+          inside /= i * i;
+          outside *= i;
+        }
+      }
+      return { outside, inside };
+    }
+
+    function formatComplex(realStr, imagStr, sign) {
+      const realZero = realStr === '0';
+      const imagZero = imagStr === '0';
+
+      if (realZero && imagZero) return '0';
+      if (realZero) return `${sign === '-' ? '-' : ''}${imagStr}`;
+      if (imagZero) return realStr;
+      return `${realStr} ${sign} ${imagStr}`;
+    }
+
+    function solveQuadratic(a, b, c) {
+      if (a === 0) {
+        return b === 0
+          ? (c === 0 ? '無限に解があります。' : '解が存在しません。')
+          : `1次方程式の解: x = ${-c / b}`;
+      }
+
+      const discriminant = b * b - 4 * a * c;
+      const denominator = 2 * a;
+
+      if (discriminant > 0) {
+        const sqrtInfo = sqrtSimplify(discriminant);
+        if (sqrtInfo.inside === 1) {
+          const root1 = simplifyFraction(-b + sqrtInfo.outside, denominator);
+          const root2 = simplifyFraction(-b - sqrtInfo.outside, denominator);
+          return `解: x₁ = ${fractionToString(root1)}, x₂ = ${fractionToString(root2)}`;
+        } else {
+          const real = simplifyFraction(-b, denominator);
+          const imag = simplifyFraction(sqrtInfo.outside, denominator);
+          const sqrt = sqrtInfo.inside;
+
+          const realStr = fractionToString(real);
+          const imagStr = imag.numerator === 1 && imag.denominator === 1
+            ? `√${sqrt}`
+            : `${fractionToString(imag)}√${sqrt}`;
+
+          return `解: x₁ = ${formatComplex(realStr, imagStr, '+')}, x₂ = ${formatComplex(realStr, imagStr, '-')}`;
+        }
+      } else if (discriminant === 0) {
+        const root = simplifyFraction(-b, denominator);
+        return `重解: x = ${fractionToString(root)}`;
+      } else {
+        const absD = -discriminant;
+        const sqrtInfo = sqrtSimplify(absD);
+        const real = simplifyFraction(-b, denominator);
+        const imag = simplifyFraction(sqrtInfo.outside, denominator);
+        const sqrt = sqrtInfo.inside;
+
+        const realStr = fractionToString(real);
+        let imagStr;
+        if (imag.numerator === 1 && imag.denominator === 1) {
+          imagStr = sqrt === 1 ? `i` : `i√${sqrt}`;
+        } else {
+          imagStr = sqrt === 1
+            ? `${fractionToString(imag)}i`
+            : `${fractionToString(imag)}i√${sqrt}`;
+        }
+
+        return `虚数解: x₁ = ${formatComplex(realStr, imagStr, '+')}, x₂ = ${formatComplex(realStr, imagStr, '-')}`;
+      }
+    }
+
+    function solve() {
+      const a = parseFloat(document.getElementById('a').value);
+      const b = parseFloat(document.getElementById('b').value);
+      const c = parseFloat(document.getElementById('c').value);
+
+      const result = solveQuadratic(a, b, c);
+      document.getElementById('result').textContent = result;
+    }
+  </script>
+
+</body>
+</html>
